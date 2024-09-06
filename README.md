@@ -1,39 +1,37 @@
-
 # IPA2DEB
-Convert iOS .ipa application files to the .deb file format for jailbroken devices, and add it to a Cydia repo Supports appsync and system wide apps
-Ipa to Deb
-IPA2DEB is a tool to convert decrypted `.ipa` files into `.deb` packages for jailbroken iOS devices. It provides a more flexible and traditional method for installing iOS applications in `.deb` format. This can be particularly useful for older devices that no longer support the App Store or when you prefer manual installations.
-- Note (I don't know what version appsync latest version supports but latest device tested on ipad 3 ios 9.3.5)
+
+Convert decrypted iOS `.ipa` files to `.deb` packages for jailbroken devices and add them to Cydia repos. Supports AppSync and system-wide apps.
+
 ## Features
 
-- Converts decrypted `.ipa` files into `.deb` packages.
-- Three installation methods:
-  1. **Fake Sign**: Signs the app with a fake certificate to install it for personal use. This method only works with decrypted `.ipa` files.
-  2. **Appinst and Appsync**: Uses `appinst` to install the app and `appsync` for handling installation with additional support for installation and removal. This method is useful for managing app installations on jailbroken devices with enhanced control.
-  3. **System-Wide Install**: Installs the app system-wide, making it available across all users like a stock iOS application. This method modifies the installation plist to ensure the app is recognized as a system app.
+- Convert `.ipa` files to `.deb`.
+- **Fake Sign**: For personal use with fake certificates.
+- **Appinst & AppSync**: Manage installations with `appinst` and `appsync`.
+- **System-Wide Install**: Makes the app available system-wide.
 
 ## Requirements
 
-- Decrypted `.ipa` files.
-- Jailbroken iOS device.
-- Tools such as `dpkg`, `appinst`, `appsync`, and `ssh` to transfer files and handle the installation process. (or to put the .deb in a cydia repo easier)
+- Decrypted `.ipa` files
+- Jailbroken iOS device
+- Tools: `dpkg`, `appinst`, `appsync`, `ssh`
+- **Optional**: Use a Cydia repo for easier installation. (Refer to your repo or a repo template on GitHub Pages for guidance.)
+
 ## Installation
 
-1. Transfer the decrypted `.ipa` file to your computer.
-2. Run the IPA2DEB tool to convert the `.ipa` to `.deb`:
+1. Transfer the `.ipa` file to your computer.
+2. Convert to `.deb`:
    `./ipa2deb.sh path/to/your_app.ipa`
-3. Choose the installation method when prompted:
+3. Choose an installation method:
    - `1`: Fake sign and create `.deb`.
-   - `2`: Use `appinst` and `appsync` to install and create `.deb`.
-   - `3`: System-wide install and create `.deb`.
-
-4. Transfer the resulting `.deb` file to your jailbroken device.
-5. SSH into your device and install the `.deb` file using `dpkg`:
+   - `2`: Use `appinst` and `appsync`.
+   - `3`: System-wide install.
+4. Transfer the `.deb` to your device.
+5. SSH into your device and install:
    `dpkg -i your_app.deb`
-
-6. Respring your device if necessary, and your app should be installed!
+6. Respring if needed.
 
 ## Credits
-- Modified and improved by Ahmad Jerjawi with additional installation options and optimizations for system-wide installs.
-- The Fake Signer thx to [basti564](https://github.com/basti564/fakesigner/compare/master...hykilpikonna:fakesigner-ios:master)
+
+- Ahmad Jerjawi for enhancements.
+- Fake Signer by [basti564](https://github.com/basti564/fakesigner/compare/master...hykilpikonna:fakesigner-ios:master)
 - [Alex Free](https://github.com/alex-free/ipa2deb/) for the original version.
