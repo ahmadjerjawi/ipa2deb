@@ -1,0 +1,287 @@
+#!/bin/bash
+echo -e "IPA2DEB v1 created by Alex Free\n"
+echo -e "IPA2DEB v2 modified and improved by Ahmad Jerjawi\n"
+
+# Check if fzf is installed
+if command -v fzf &> /dev/null; then
+    has_fzf=true
+else
+    has_fzf=false
+fi
+
+# Function to prompt the user for their choice
+prompt_user() {
+    echo "Choose an option:"
+    echo "1. Fake sign the app"
+    echo "2. Use appsync for installation (with appinst installed)"
+    echo "3. Use system wide method (app becomes a system app aka can't uninstall unless from cydia)"
+    read -rp "Enter your choice (1, 2, or 3): " choice
+    case $choice in
+        1)
+            fake_sign=true
+            echo "You chose Fake Sign."
+            ;;
+        2)
+            use_appinst=true
+            ;;
+        3)
+            use_old_method=true
+            ;;
+        *)
+            echo "Invalid choice. Exiting."
+            exit 1
+            ;;
+    esac
+}
+
+# Function to get file or directory using fzf or basic input
+select_file_or_directory() {
+    local prompt="$1"
+    local result
+
+    if [ "$has_fzf" = true ]; then
+        result=$(fzf --prompt="$prompt" --preview 'echo {}' --preview-window=up:20%)
+        if [ -z "$result" ]; then
+            echo "No selection made."
+            exit 1
+        fi
+    else
+        echo "$prompt"
+        read -rp "Enter the path: " result
+        if [ ! -e "$result" ]; then
+            echo "Error: $result is not a file or directory that exists."
+            exit 1
+        fi
+    fi
+
+    echo "$result"
+}
+
+# Function to get optional inputs from the user
+get_optional_inputs() {
+    ipa_path=$(select_file_or_directory "Select the IPA file or directory")
+    if [ ! -e "$ipa_path" ]; then
+        echo "Error: $ipa_path is not a file or directory that exists"
+        exit 1
+    fi
+
+    read -rp "Enter the output directory (leave blank for default 'output'): " output_dir
+    output_dir=${output_dir:-output}
+
+    read -rp "Enter the app ID (required): " app_id
+    if [ -z "$app_id" ]; then
+        echo "Error: App ID is mandatory."
+        exit 1
+    fi
+
+    read -rp "Enter the app version (required): " app_ver
+    if [ -z "$app_ver" ]; then
+        echo "Error: App version is mandatory."
+        exit 1
+    fi
+
+    read -rp "Enter the app name (required): " app_name
+    if [ -z "$app_name" ]; then
+        echo "Error: App name is mandatory."
+        exit 1
+    fi
+
+    read -rp "Enter the minimum iOS version required (required): " app_min_os_ver_required
+    if [ -z "$app_min_os_ver_required" ]; then
+        echo "Error: Minimum iOS version required is mandatory."
+        exit 1
+    fi
+
+    read -rp "Enter the author name and email (required): " author
+    if [ -z "$author" ]; then
+        echo "Error: Author information is mandatory."
+        exit 1
+    fi
+
+    read -rp "Enter the website (optional): " website
+    website=${website:-"about:blank"}
+}
+
+# Convert function for fake sign method
+convert_fake_sign() {
+    rm -rf "$tmp"
+    tmp=$(mktemp -d /var/tmp/ipa2deb.XXX)
+
+    if [ -z "$app_id" ] || [ -z "$app_ver" ] || [ -z "$app_name" ] || [ -z "$app_min_os_ver_required" ]; then
+        echo "Error: Required variables (app_id, app_ver, app_name, app_min_os_ver_required) are not set."
+        exit 1
+    fi
+
+    fakesigned_ipa="$tmp"/"$app_id"-"$app_ver"-fakesigned.ipa
+    cp -r "$1" "$fakesigned_ipa"
+    echo "Fake signing $fakesigned_ipa..."
+    ./fakesigner.sh "$fakesigned_ipa"
+
+    package_dir="$tmp"/"$app_id"-"$app_ver"-iOS-"$app_min_os_ver_required"
+    mkdir -p "$package_dir"/Applications
+    mkdir -p "$package_dir"/DEBIAN
+
+    cp -r "$fakesigned_ipa" "$package_dir"/Applications/
+
+    echo -e "Package: $app_id\nName: $app_name v$app_ver (iOS $app_min_os_ver_required)\nDepends: mobilesubstrate (>= 0.9.5000), ai.akemi.appinst (>= 2.1), ai.akemi.appsyncunified, firmware (>= $app_min_os_ver_required), uikittools\nVersion: $app_ver\nArchitecture: iphoneos-arm\nDescription: The decrypted IPA file: $1 converted to .deb automatically by https://github.com/AhmadJerjawi/ipa2deb .\nHomepage: $website\nDepiction: $website\nMaintainer: $author\nAuthor: Ahmad Jerjawi\nSponsor: Ahmad Jerjawi\nSection: AppStore Apps" > "$package_dir"/DEBIAN/control
+
+    dpkg-deb -Zgzip -b "$package_dir"
+    cp --backup=t "$package_dir".deb "$2"
+}
+
+# Convert function for appinst method
+convert_appinst() {
+    rm -rf "$tmp"
+    tmp=$(mktemp -d /var/tmp/ipa2deb.XXX)
+
+    if [ -z "$app_id" ] || [ -z "$app_ver" ] || [ -z "$app_name" ] || [ -z "$app_min_os_ver_required" ]; then
+        echo "Error: Required variables (app_id, app_ver, app_name, app_min_os_ver_required) are not set."
+        exit 1
+    fi
+
+    fakesigned_ipa="$tmp"/"$app_id"-"$app_ver"-fakesigned.ipa
+    cp -r "$1" "$fakesigned_ipa"
+
+    package_dir="$tmp"/"$app_id"-"$app_ver"-iOS-"$app_min_os_ver_required"
+    mkdir -p "$package_dir"/Applications
+    mkdir -p "$package_dir"/DEBIAN
+
+    cp -r "$fakesigned_ipa" "$package_dir"/Applications/
+
+    echo -e "Package: $app_id\nName: $app_name v$app_ver (iOS $app_min_os_ver_required)\nDepends: mobilesubstrate (>= 0.9.5000), ai.akemi.appinst (>= 2.1), ai.akemi.appsyncunified, firmware (>= $app_min_os_ver_required), uikittools\nVersion: $app_ver\nArchitecture: iphoneos-arm\nDescription: The decrypted IPA file: $1 converted to .deb automatically by https://github.com/AhmadJerjawi/ipa2deb .\nHomepage: $website\nDepiction: $website\nMaintainer: $author\nAuthor: Ahmad Jerjawi\nSponsor: Ahmad Jerjawi\nSection: AppStore Apps" > "$package_dir"/DEBIAN/control
+
+    echo -e "#!/bin/bash
+echo 'Post-install script running...'
+echo 'Current directory:' \$(pwd)
+echo 'Files in current directory:'
+ls -alh
+echo 'Contents of /Applications:'
+ls -alh /Applications
+
+appinst /Applications/*.ipa
+rm -rf /Applications/*.ipa
+
+bundle_id=\$(appinst /Applications/*.ipa --dry-run | grep 'Bundle identifier:' | awk '{print \$NF}')
+echo \"Installed app with bundle ID: \$bundle_id\"
+echo \$bundle_id > /var/mobile/ipa2deb_bundle_id
+
+echo 'Installation complete.'" > "$package_dir"/DEBIAN/postinst
+    chmod 755 "$package_dir"/DEBIAN/postinst
+
+    echo -e "#!/bin/bash
+echo 'Post-remove script running...'
+echo 'Current directory:' \$(pwd)
+echo 'Files in current directory:'
+ls -alh
+echo 'Contents of /Applications:'
+ls -alh /Applications
+
+bundle_id=\$(cat /var/mobile/ipa2deb_bundle_id)
+
+if [ -n \"\$bundle_id\" ]; then
+    echo \"Uninstalling app with bundle ID: \$bundle_id\"
+    rm -rf \"/Applications/\$bundle_id.app\"
+    echo 'Uninstallation complete.'
+else
+    echo 'No bundle ID found, skipping uninstallation.'
+fi" > "$package_dir"/DEBIAN/postrm
+    chmod 755 "$package_dir"/DEBIAN/postrm
+
+    dpkg-deb -Zgzip -b "$package_dir"
+    cp --backup=t "$package_dir".deb "$2"
+}
+
+# Convert function for old method
+convert_old_method() {
+    rm -rf "$tmp"
+    # Put temp directory in /var/tmp
+    tmp=$(mktemp -d /var/tmp/ipa2deb.XXX)
+
+    unzip -q "$1" -d "$tmp"/extracted  &> /dev/null
+    if [[ $? != 0 ]] ; then
+        echo "Not converting specified ipa file: "$1" as it could not be extracted, it may be corrupted\n" >> "$2"/ipa2deb-extraction-failure-log.txt
+        return
+    fi
+    chmod -R 777 "$tmp"/extracted
+    app_dirname=$(ls "$tmp"/extracted/Payload)
+    return=$(pwd)
+    cd "$tmp"/extracted/Payload/"$app_dirname"
+    app_id=$(python3 -c "import plistlib; print(plistlib.load(open('Info.plist', 'rb'))['CFBundleIdentifier'])" 2>/dev/null)
+    app_ver=$(python3 -c "import plistlib; print(plistlib.load(open('Info.plist', 'rb'))['CFBundleVersion'])" 2>/dev/null)
+    app_name=$(python3 -c "import plistlib; print(plistlib.load(open('Info.plist', 'rb'))['CFBundleDisplayName'])" 2>/dev/null)
+    app_min_os_ver_required=$(python3 -c "import plistlib; print(plistlib.load(open('Info.plist', 'rb'))['MinimumOSVersion'])" 2>/dev/null)
+    cd "$return"
+
+    if [ -z "$app_ver" ]; then
+        echo "Error: The ipa file: "$1" is missing the "CFBundleVersion" key in the "Info.plist" file and  can not be converted" >>  "$2"/ipa2deb-conversion-failure-log.txt
+        return
+    fi
+    if [ -z "$app_name" ]; then
+        cd "$tmp"/extracted/Payload/"$app_dirname"
+        app_name=$(python3 -c "import plistlib; print(plistlib.load(open('Info.plist', 'rb'))['CFBundleName'])" 2>/dev/null)
+        cd "$return"
+        if [ -z "$app_name" ]; then
+            echo "Error: The ipa file: "$1" is missing the "CFBundleDisplayName"/"CFBundleName" key in the "Info.plist" file and can not be converted" >>  "$2"/ipa2deb-conversion-failure-log.txt
+            return
+        fi
+    fi
+
+    app_id_first_char=$(echo "$app_id" | cut -c1-1)
+    if [[ "$app_id_first_char" =~ [^a-zA-Z0-9] ]]; then
+        app_id="1"$app_id""
+    fi
+
+    if [ -z "$app_min_os_ver_required" ]; then
+        echo "Error: The ipa file: "$1" is missing the "MinimumOSVersion" key in the "Info.plist" file and can not be converted" >>  "$2"/ipa2deb-conversion-failure-log.txt
+        return
+    fi
+
+    rm -rf "$tmp"/"$app_id"-"$app_ver"-iOS-"$app_min_os_ver_required"
+    mkdir -p "$tmp"/"$app_id"-"$app_ver"-iOS-"$app_min_os_ver_required"/Applications
+    mkdir -p "$tmp"/"$app_id"-"$app_ver"-iOS-"$app_min_os_ver_required"/DEBIAN
+    mv "$tmp"/extracted/Payload/"$app_dirname" "$tmp"/"$app_id"-"$app_ver"-iOS-"$app_min_os_ver_required"/Applications/"$app_dirname"
+    rm -rf "$tmp"/extracted
+    echo -e "Package: "$app_id"\nName: "$app_name" v"$app_ver" (iOS "$app_min_os_ver_required")\nDepends: firmware (>= "$app_min_os_ver_required"), uikittools, appsync\nVersion: "$app_ver"\nArchitecture: iphoneos-arm\nDescription: The decrypted ipa file: "$1" converted to .deb automatically by https://alex-free.github.io/ipa2deb .\nHomepage: "$4"\nDepiction: "$4"\nMaintainer: "$3"\nAuthor: "$3"\nSponsor: "$3"\nSection: AppStore Apps" > "$tmp"/"$app_id"-"$app_ver"-iOS-"$app_min_os_ver_required"/DEBIAN/control
+	echo -e "#!/bin/bash\nsu - mobile -c uicache" > "$tmp"/"$app_id"-"$app_ver"-iOS-"$app_min_os_ver_required"/DEBIAN/postinst
+    chmod 775 "$tmp"/"$app_id"-"$app_ver"-iOS-"$app_min_os_ver_required"/DEBIAN/postinst
+	echo -e "#!/bin/bash\nsu - mobile -c uicache" > "$tmp"/"$app_id"-"$app_ver"-iOS-"$app_min_os_ver_required"/DEBIAN/postrm
+    chmod 775 "$tmp"/"$app_id"-"$app_ver"-iOS-"$app_min_os_ver_required"/DEBIAN/postrm
+    dpkg-deb -Zgzip -b "$tmp"/"$app_id"-"$app_ver"-iOS-"$app_min_os_ver_required"
+    cp --backup=t "$tmp"/"$app_id"-"$app_ver"-iOS-"$app_min_os_ver_required".deb "$2"
+}
+
+# Start of script
+prompt_user
+get_optional_inputs
+
+if [ -d "$ipa_path" ]; then
+    cd "$ipa_path" || exit
+    total_ipas=$(ls -1 *.ipa 2>/dev/null | wc -l)
+    if [ "$total_ipas" != 0 ]; then
+        current_ipa=1
+        for f in *.ipa; do
+            echo "Processing IPA file: $current_ipa/$total_ipas"
+            if [ "$fake_sign" = true ]; then
+                convert_fake_sign "$f" "$output_dir"
+            elif [ "$use_appinst" = true ]; then
+                convert_appinst "$f" "$output_dir"
+            elif [ "$use_old_method" = true ]; then
+                convert_old_method "$f" "$output_dir"
+            fi
+            current_ipa=$((current_ipa + 1))
+        done
+    else
+        echo "Error: There are no .ipa files in $ipa_path"
+    fi
+elif [ -f "$ipa_path" ]; then
+    if [ "$fake_sign" = true ]; then
+        convert_fake_sign "$ipa_path" "$output_dir"
+    elif [ "$use_appinst" = true ]; then
+        convert_appinst "$ipa_path" "$output_dir"
+    elif [ "$use_old_method" = true ]; then
+        convert_old_method "$ipa_path" "$output_dir"
+    fi
+else
+    echo "Error: $ipa_path is not a file or directory that exists"
+    exit 1
+fi
