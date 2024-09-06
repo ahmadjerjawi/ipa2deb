@@ -2,11 +2,8 @@
 # IPA2DEB
 Convert iOS .ipa application files to the .deb file format for jailbroken devices, and add it to a Cydia repo Supports appsync and system wide apps
 Ipa to Deb
-- Note ((I don't know what version appsync latest version supports but latest device tested on ipad 3 ios 9.3.5) )
-**By Alex Free, modified and improved by Ahmad Jerjawi**
-
 IPA2DEB is a tool to convert decrypted `.ipa` files into `.deb` packages for jailbroken iOS devices. It provides a more flexible and traditional method for installing iOS applications in `.deb` format. This can be particularly useful for older devices that no longer support the App Store or when you prefer manual installations.
-
+- Note (I don't know what version appsync latest version supports but latest device tested on ipad 3 ios 9.3.5)
 ## Features
 
 - Converts decrypted `.ipa` files into `.deb` packages.
