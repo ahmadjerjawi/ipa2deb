@@ -25,10 +25,10 @@ Convert decrypted iOS `.ipa` files to `.deb` packages for jailbroken devices and
    - `1`: Fake sign and create `.deb`.
    - `2`: Use `appinst` and `appsync`.
    - `3`: System-wide install.
-4. Transfer the `.deb` to your device.
-5. SSH into your device and install:
+4. Transfer the `.deb` to your device. (By Ssh Or Adding the `.deb` to your cydia repo)
+6. optional SSH into your device and install:
    `dpkg -i your_app.deb`
-6. Respring if needed.
+7. Respring if needed.
 
 ## Credits
 
