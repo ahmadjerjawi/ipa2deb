@@ -32,6 +32,6 @@ Convert decrypted iOS `.ipa` files to `.deb` packages for jailbroken devices and
 
 ## Credits
 
-- Ahmad Jerjawi for enhancements.
+- Ahmad for enhancements.
 - Fake Signer by [basti564](https://github.com/basti564/fakesigner/compare/master...hykilpikonna:fakesigner-ios:master)
 - [Alex Free](https://github.com/alex-free/ipa2deb/) for the original version.
